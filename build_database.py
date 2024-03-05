@@ -116,7 +116,7 @@ def create_and_insert_fast(frame:'pandas.core.frame.DataFrame',tname:str,index_c
         return
     
 
-def write_spatial_table_into_db(gdf:'geopandas.geodataframe.GeoDataFrame', tname:str = '',geom_col:str = 'geometry',
+def write_spatial_table_into_db(gdf:'geopandas.geodataframe.GeoDataFrame' = '', tname:str = '',geom_col:str = 'geometry',
     index_col:str = '',index_name:str = '',keep_cols:list = [],spath:str = ''):
     '''
     Write spatial dataframe into sqlite db. Designed to use geodataframe, with any given index column. 
@@ -392,10 +392,6 @@ def load_geometries_into_db(spath : str = None):
 
     start = time.strftime("%H:%M:%S")
     print(f"write blocks start time: {start}")  
-
-    gdf:'geopandas.geodataframe.GeoDataFrame', tname:str = '',geom_col:str = 'geometry',
-    index_col:str = '',index_name:str = '',keep_cols:list = [],spath:str = ''
-
 
     write_spatial_table_into_db(gdf = b_gdf, 
         tname = "blocks_2020_geom", 
