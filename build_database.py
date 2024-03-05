@@ -1,4 +1,3 @@
-
 def get_file_paths(folder_path: str = None):
     """
     Get filepaths to a list of files in a common place separated by years.
@@ -367,7 +366,12 @@ def load_lodes_into_db(folder_path:str = None,spath:str = None):
     print("done loading all in")
 
 def load_geometries_into_db(spath : str = None):
-    
+    '''
+    Reads and then loads into the database a series of geometry files for reference. 
+    Largely custom; check paths and files. Original geometry data is from NHGIS. 
+
+    :param str spath: Path to the location of Spatialite database.
+    '''
     import geopandas as gpd
     import time 
     
@@ -388,31 +392,39 @@ def load_geometries_into_db(spath : str = None):
 
     start = time.strftime("%H:%M:%S")
     print(f"write blocks start time: {start}")  
-    write_spatial_table_into_db(b_gdf, 
-        "blocks_2020_geom", 
-        spath=spath, 
-        index_name="blocks_index", 
+
+    gdf:'geopandas.geodataframe.GeoDataFrame', tname:str = '',geom_col:str = 'geometry',
+    index_col:str = '',index_name:str = '',keep_cols:list = [],spath:str = ''
+
+
+    write_spatial_table_into_db(gdf = b_gdf, 
+        tname = "blocks_2020_geom", 
+        geom_col = 'geometry',
         index_col="geocode",
-        keep_cols=['GISJOIN','STATEFP20','COUNTYFP20','TRACTCE20'])
+        index_name="blocks_index", 
+        keep_cols=['GISJOIN','STATEFP20','COUNTYFP20','TRACTCE20'],
+        spath=spath)
 
     start = time.strftime("%H:%M:%S")
     print(f"write tract start time: {start}")  
-    write_spatial_table_into_db(t_gdf, 
-        "tracts_2020_geom", 
-        spath=spath, 
-        index_name="tracts_index", 
+    write_spatial_table_into_db(gdf = t_gdf, 
+        tname = "tracts_2020_geom", 
+        geom_col = 'geometry',
         index_col="GEOID",
-        keep_cols=['STATEFP','COUNTYFP','TRACTCE'])
-
+        index_name="tracts_index", 
+        keep_cols=['STATEFP','COUNTYFP','TRACTCE'],
+        spath=spath)
+        
     start = time.strftime("%H:%M:%S")
     print(f"write zcta start time: {start}")  
-    write_spatial_table_into_db(z_gdf, 
-        "zcta_2020_geom", 
-        spath=spath, 
-        index_name="tracts_index", 
-        index_col="GEOID20",
-        keep_cols=['ZCTA5CE20','MTFCC20','GISJOIN'])
-    
+    write_spatial_table_into_db(gdf = z_gdf, 
+        tname = "zcta_2020_geom", 
+        geom_col = 'geometry',
+        index_col ="GEOID20",
+        index_name ="zcta_index", 
+        keep_cols=['ZCTA5CE20','MTFCC20','GISJOIN'],
+        spath=spath)
+
     end = time.strftime("%H:%M:%S")
     print(f"full geom load in end time: {end}")   
     print("done loading up geometries")
