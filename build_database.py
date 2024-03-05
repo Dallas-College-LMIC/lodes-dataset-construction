@@ -1,8 +1,4 @@
 
-'''
-Script for building OD database files into a sqlite db
-'''
-
 def get_file_paths(folder_path: str = None):
     """
     Get filepaths to a list of files in a common place separated by years.
@@ -26,19 +22,18 @@ def get_file_paths(folder_path: str = None):
     return racs,wacs,ods
 
 def build_db(spath : str = None):
-    import sqlite3
-    import os
     '''
     Create a new SQLite Database with SpatialLite enabled.
-
-   :param str spath: Path to the location to save the SQLite db. 
-   '''
-    print("Building sqlite db...")
+    :param str spath: Path to the location to save the SQLite db. 
+    '''
+    import sqlite3
+    import os
+    print("building sqlite db...")
     try:
         #removes existing 
         if os.path.exists(spath):
             os.remove(spath)
-        # create database engine and create sqlite database
+        #create database engine and create sqlite database
         conn = sqlite3.connect(spath)
         conn.enable_load_extension(True)
 
@@ -46,46 +41,51 @@ def build_db(spath : str = None):
         conn.execute('SELECT load_extension("mod_spatialite")')   
         conn.execute('SELECT InitSpatialMetaData(1);')  
         conn.close()
-        print(f"Success!\nSaved to: {spath}")
+        print(f"success!\nsaved to: {spath}")
     except:
-        print(f"Could not create SQLite db at: {spath}")
+        print(f"could not create sqlite db at: {spath}")
 
-def read_in_data(file_path : str = None):
+def read_in_data(file_path : str = None) -> 'pandas.core.frame.DataFrame':
     """
-   Read in DCthe LODES data, give it an a year, and return it.
-
-   :param str file_path: Path to the given location of the given file. 
-   """
+    Read the LODES data into memory, assign it a data year, and return it
+    :param str file_path: Path to the given location of the given file. 
+    """
     import pandas as pd 
 
     #read in data 
-    #print(f"Reading in {year} using csv method")
     df = pd.read_csv(file_path,header=0,dtype="string[pyarrow]", on_bad_lines='skip',encoding = "ISO-8859-1")
+    
+    #assign year
     df['year'] = file_path.split("_")[-1][:4]
-    #df = df.fillna("None")
-    #print("Done")
+
     return df
 
-def create_and_insert_fast(frame,tname,index_col,index_name,spath):
+def create_and_insert_fast(frame:'pandas.core.frame.DataFrame',tname:str,index_col:str,index_name:str,spath:str):
     """
-    Write a file into a table in SQL quickly.
+    Write a pandas DataFrame into a Sqlite table quickly.
 
-    :param str file_path: Path to the given location of the given file. 
-    :param str or int year: Year as an int or str
+    :param pandas.core.frame.DataFrame frame: DataFrame containing data you would like to upload.
+    :param str tname: Name to call table in Sqlite database.
+    :param str index_col: Column in DataFrame to use as an index.
+    :param str index_name: Name to call index in sqlite table.
+    :param str spath: Path to existing Sqlite table.
     """
+    
     import sqlite3
-    #print(f"connecting to db: {spath}")
-    cnx = sqlite3.connect(spath)
+
+    #connect to sqlite table
     try:
+        cnx = sqlite3.connect(spath)
         cursor = cnx.cursor()
         cursor.execute(f"DROP TABLE {tname};")
         cnx.execute("PRAGMA max_page_count = 2147483646;")
         cnx.commit()
         #print("dropped old table...")
     except:
-        None
-    #cnx.execute("PRAGMA max_page_count = 2147483646;")
-    #cnx.commit()
+        print(f"{tname}: could not connect")
+        return
+
+    #write to database in 50k row chunks
     try:
         #print(f"writing to db...")
         n = 50000  #chunk row size
@@ -93,68 +93,92 @@ def create_and_insert_fast(frame,tname,index_col,index_name,spath):
         for chunk_frame in list_df:
             chunk_frame.to_sql(name=tname, con=cnx,if_exists="append", index=False)
     except:
-        print(f"error- could not write {tname}")
+        print(f"{tname}: could not write")
+        return
+
     #create index
     try:
         if (type(index_col) == str) and (type(index_name) == str):
-            #print("creating index...")
             crsr = cnx.cursor()
+            #drop existing index and remake
             crsr.execute(f"DROP INDEX IF EXISTS {index_name}")
             crsr.execute(f"CREATE INDEX {index_name} ON {tname} ({index_col})")
     except:
-        print("could not make index")
+        print(f"{tname}: could not make index")
+        return
+
     try:
+        #commit everything and close connection
         cnx.commit()
         cnx.close()
-        #print("done")
         return
     except:
-        print("error closing")
+        print(f"{tname}: error closing")
         return
-    #print("done writing")
-
-def write_spatial_table_into_db(gdf, table_name,spath,index_name,index_col,keep_cols=[]):
-    '''
-    Write spatial dataframe into sqlite db. Designed to use geodataframe, with any given index column.
     
-    :param geopandas.GeoDataFrame gdf: GeoDataFrame you want in the SQLIte table.
-    :param str table_name: Name you want for the table in SQLite DB. Passed to create_insert_fast.
-    :param str spath: Path to SQLite table.
+
+def write_spatial_table_into_db(gdf:'geopandas.geodataframe.GeoDataFrame', tname:str = '',geom_col:str = 'geometry',
+    index_col:str = '',index_name:str = '',keep_cols:list = [],spath:str = ''):
+    '''
+    Write spatial dataframe into sqlite db. Designed to use geodataframe, with any given index column. 
+    Default creates a spatial index on the geometry column. Uses shapely to make geometry wkt.
+
+    :param geopandas.GeoDataFrame gdf: GeoDataFrame you want in the Spatialite table.
+    :param str tname: Name you want for the table in SQLite DB. Passed to create_insert_fast.
+    :param str geom_col: Name of the column to use for geometry.
     :param str index_col: Name of the column to use as a non-spatial index column.
     :param str index_name: Name of non-spatial index column.
     :param list keep_cols: Optional parameter of additional columns to retain in the SQLite DB.
+    :param str spath: Path to SQLite database.
     '''
+
     import sqlite3
     import geopandas as gpd 
     import shapely
-
-    print(f'Processing {table_name}')
+    gpd.options.use_pygeos = True
+    
+    print(f'processing {tname}')
 
     #slice dataframe into relevant parts
-    gdf = gdf[[index_col,'geometry'] + keep_cols].copy()
+    try:
+        gdf = gdf[[index_col,geom_col] + keep_cols].copy()
+    except:
+        print(f"{tname}: error slicing")
+        return
+    
+    #process for upload
+    try:
+        #convert to EPSG 4326
+        gdf = gdf.to_crs("EPSG:4326")
 
-    #convert to EPSG 4326
-    gpd.options.use_pygeos = True
-    gdf = gdf.to_crs("EPSG:4326")
+        #drop na geometries
+        gdf = gdf.loc[~gdf[geom_col].isna()]
+    
+        #convert to wkb representation
+        gdf['wkb_geometry'] = gdf.apply(lambda x: shapely.wkb.dumps(x[geom_col],output_dimension=2), axis=1)
+        
+        #drop geometry
+        gdf = gdf.drop(columns=[geom_col])
 
-    #convert to wkb representation
-    print("Converting geometry...")
-    #drop na geometries
-    gdf = gdf.loc[~gdf['geometry'].isna()]
-    gdf['wkb_geometry'] = gdf.apply(lambda x: shapely.wkb.dumps(x.geometry,output_dimension=2), axis=1)
-    gdf = gdf.drop(columns='geometry')
+    except:
+        print(f"{tname}: error preparing for upload")
+        return
+        
     
     # write data into sqlite database
-    print(f'Writing {table_name} into database.')
-    create_and_insert_fast(frame=gdf, 
-        tname=table_name, 
-        index_col=index_col,
-        index_name=index_name,
-        spath=spath)
-
-    #make spatial
     try:
-        print("Spatial operations...")
+        print(f'writing {tname} into database.')
+        create_and_insert_fast(frame=gdf, 
+            tname=tname, 
+            index_col=index_col,
+            index_name=index_name,
+            spath=spath)
+    except:
+        print(f"{tname}: error preparing for upload")
+        return
+
+    # make sqlite spatial
+    try:
         #load extensions
         conn = sqlite3.connect(spath)
         conn.enable_load_extension(True)
@@ -164,57 +188,70 @@ def write_spatial_table_into_db(gdf, table_name,spath,index_name,index_col,keep_
         crsr = conn.cursor()
 
         #add multipolygon geometry column to original table
-        crsr.execute(f"SELECT AddGeometryColumn('{table_name}', 'geom', 4326, 'MULTIPOLYGON', 2);")
+        crsr.execute(f"SELECT AddGeometryColumn('{tname}', 'geom', 4326, 'MULTIPOLYGON', 2);")
         
-        # update the yet empty geom column by parsing the well-known-binary objects from the geometry column into Spatialite geometry objects
-        print("Setting geometries...")
-        crsr.execute(f"UPDATE {table_name} SET geom=ST_Multi(GeomFromWKB(wkb_geometry, 4326));")
-        # drop the other geometry column which are not needed anymore. 
+        # update the yet empty geom column by parsing the well-known-binary objects from 
+        # the geometry column into Spatialite geometry objects
+        
+        crsr.execute(f"UPDATE {tname} SET geom=ST_Multi(GeomFromWKB(wkb_geometry, 4326));")
+        # drop the other geometry column which are not needed anymore 
         # unfortunately, there is no DROP COLUMN support in sqlite3, 
         # so a heavy workaround is needed to clean up via a temporary table.
-        print("Cleaning up old table...")
-        #get a list of columns to use as the main columns you want, adding in the new geom column
-        #automatically will exclude wkb_geometry column
+        # get a list of columns to use as the main columns you want, adding in the new geom column
+        # automatically will exclude wkb_geometry column
         columns = str(tuple(gdf.columns.tolist() + ['geom'])).replace("(","").replace(")","").replace("'","")
         
         #create backup table with relevant data
-        crsr.execute(f"CREATE TABLE {table_name}_backup({columns});")
-        crsr.execute(f"INSERT INTO {table_name}_backup SELECT * from {table_name};")
+        crsr.execute(f"CREATE TABLE {tname}_backup({columns});")
+        crsr.execute(f"INSERT INTO {tname}_backup SELECT * from {tname};")
         
         #drop original table
-        crsr.execute(f"DROP TABLE {table_name};")
+        crsr.execute(f"DROP TABLE {tname};")
 
         #create new table with columns and name to match desired table
-        crsr.execute(f"CREATE TABLE {table_name}({columns});")
-
+        crsr.execute(f"CREATE TABLE {tname}({columns});")
+    
         #put everything back into original table
-        crsr.execute(f"INSERT INTO {table_name} SELECT * FROM {table_name}_backup;")
-        crsr.execute(f"DROP TABLE {table_name}_backup;")
-        
-        #create index on geoid
-        #due to the write/rewrite function you do need this to keep index
-        print("Create regular index..")
-        crsr.execute(f"DROP INDEX IF EXISTS {table_name}_index")
-        crsr.execute(f"CREATE INDEX {index_name} ON {table_name}({index_col})")
+        crsr.execute(f"INSERT INTO {tname} SELECT * FROM {tname}_backup;")
+        crsr.execute(f"DROP TABLE {tname}_backup;")
+
+        conn.commit()
+        crsr.close()
+        conn.close()
+    except:
+        print(f"{tname}: error making geometry")
+        return
+
+    #make spatial index
+    try:
+        #reconnect 
+        conn = sqlite3.connect(spath)
+        conn.enable_load_extension(True)
+        conn.execute('SELECT load_extension("mod_spatialite")')
+
+        #start cursor
+        crsr = conn.cursor()
+         #create index
+        crsr.execute(f"DROP INDEX IF EXISTS {tname}_index")
+        crsr.execute(f"CREATE INDEX {index_name} ON {tname}({index_col})")
         
         #create spatial index on geometry
-        print("Create spatial index..")
-        crsr.execute(f"SELECT CreateSpatialIndex('{table_name}', 'geom');")
+        crsr.execute(f"SELECT CreateSpatialIndex('{tname}', 'geom');")
         
         #commit and close
         conn.commit()
         crsr.close()
         conn.close()
-        print(f"Done processing {table_name}\n")
     except:
-        print(f"Error on spatial operations for {table_name}.\n")
+        print(f"{tname}: error making spatial index")
+    print(f"processed {tname}")
 
 def load_blocks(geom_w:str = None):
     '''
-    Prepares the blocks data  to be loaded into the Spatialite
+    Prepares the blocks data to be loaded into the Spatialite
 
-   :param str geom_w: Path to the location of GeoDataBase containing the blocks. Layers must be as specified. Sourced from NHGIS.
-   '''
+    :param str geom_w: Path to the location of GeoDataBase containing the blocks. Sourced from NHGIS.
+    '''
     
     import geopandas as gpd
     print(f"loading blocks geometries...")
@@ -228,87 +265,108 @@ def load_blocks(geom_w:str = None):
     return gdf
 
 def load_lodes_into_db(folder_path:str = None,spath:str = None):
+    '''
+    Reads and then loads all the LODES tabular data into Spatialite db. 
+
+    :param str folder_path: Path to the location of unzipped lodes data; output of the unzip_all() functions.
+    :param str spath: Path to the location of Spatialite database.
+    '''
 
     import time 
     import sqlite3
-    #get the file paths into 3 bunches
-    racs,wacs,ods= get_file_paths(folder_path=fr"{folder_path}\**\*.*")
+
+    try:
+        #get the file paths into 3 bunches
+        racs,wacs,ods = get_file_paths(folder_path=fr"{folder_path}\**\*.*")
+    except:
+        print("could not find file paths")
+        return
 
     #load in racs
-    start = time.strftime("%H:%M:%S")
-    print(f"rac start time: {start}")                
-    counter = len(racs)
-    for i,q in enumerate(racs):
-        if (i % 50 == 0) or (i+1 == counter):
-            print(f"{((i+1)/counter):.1%} complete...")
-        try:
-            #read in
-            table_name = q.split("\\")[-1].replace(".csv","")
-            dfm = read_in_data(file_path = q)
-            #upload
-            create_and_insert_fast(frame=dfm, 
-                tname=table_name,
-                index_col="h_geocode",
-                index_name=f"{table_name}_main_index",
-                spath=spath) 
-        except:
-            print(f"error on {q}")
-
-    end = time.strftime("%H:%M:%S")
-    print(f"rac end time: {end}")     
-
+    try:
+        start = time.strftime("%H:%M:%S")
+        print(f"rac start time: {start}")                
+        counter = len(racs)
+        for i,q in enumerate(racs):
+            if (i % 50 == 0) or (i+1 == counter):
+                print(f"{((i+1)/counter):.1%} complete...")
+            try:
+                #read in
+                table_name = q.split("\\")[-1].replace(".csv","")
+                dfm = read_in_data(file_path = q)
+                #upload
+                create_and_insert_fast(frame=dfm, 
+                    tname=table_name,
+                    index_col="h_geocode",
+                    index_name=f"{table_name}_main_index",
+                    spath=spath) 
+            except:
+                print(f"error on {q}")
+        end = time.strftime("%H:%M:%S")
+        print(f"rac end time: {end}")     
+    except:
+        print("rac upload unsuccessful")
+            
     #load in wacs
-    start = time.strftime("%H:%M:%S")
-    print(f"wac start time: {start}")                
-    counter = len(wacs)
-    for i,q in enumerate(wacs):
-        if (i % 50 == 0) or (i+1 == counter):
-            print(f"{((i+1)/counter):.1%} complete...")
-        try:
-            #read in
-            table_name = q.split("\\")[-1].replace(".csv","")
-            dfm = read_in_data(file_path = q)
-            #upload
-            create_and_insert_fast(frame=dfm, 
-                tname=table_name,
-                index_col="w_geocode",
-                index_name=f"{table_name}_main_index",
-                spath=spath) 
-        except:
-            print(f"error on {q}")
+    try:
+        start = time.strftime("%H:%M:%S")
+        print(f"wac start time: {start}")                
+        counter = len(wacs)
+        for i,q in enumerate(wacs):
+            if (i % 50 == 0) or (i+1 == counter):
+                print(f"{((i+1)/counter):.1%} complete...")
+            try:
+                #read in
+                table_name = q.split("\\")[-1].replace(".csv","")
+                dfm = read_in_data(file_path = q)
+                #upload
+                create_and_insert_fast(frame=dfm, 
+                    tname=table_name,
+                    index_col="w_geocode",
+                    index_name=f"{table_name}_main_index",
+                    spath=spath) 
+            except:
+                print(f"error on {q}")
 
-    end = time.strftime("%H:%M:%S")
-    print(f"wac end time: {end}")     
+        end = time.strftime("%H:%M:%S")
+        print(f"wac end time: {end}")   
+
+    except:
+        print("wac upload unsuccessful")
 
     #load in od 
-    start = time.strftime("%H:%M:%S")
-    print(f"od start time: {start}")                
-    counter = len(ods)
-    for i,q in enumerate(ods):
-        if (i % 50 == 0) or (i+1 == counter):
-            print(f"{((i+1)/counter):.1%} complete...")
-        try:
-            #read in
-            table_name = q.split("\\")[-1].replace(".csv","")
-            dfm = read_in_data(file_path = q)
-            #upload
-            create_and_insert_fast(frame=dfm, 
-                tname=table_name,
-                index_col="h_geocode",
-                index_name=f"{table_name}_od_hgeocode_index",
-                spath=spath) 
-            cnx = sqlite3.connect(spath)
-            crsr = cnx.cursor()
-            crsr.execute(f"DROP INDEX IF EXISTS {table_name}_od_wgeocode_index")
-            crsr.execute(f"CREATE INDEX {table_name}_od_wgeocode_index ON {table_name} (w_geocode)")
-        except:
-            print(f"error on {q}")
+    try:
+        start = time.strftime("%H:%M:%S")
+        print(f"od start time: {start}")                
+        counter = len(ods)
+        for i,q in enumerate(ods):
+            if (i % 50 == 0) or (i+1 == counter):
+                print(f"{((i+1)/counter):.1%} complete...")
+            try:
+                #read in
+                table_name = q.split("\\")[-1].replace(".csv","")
+                dfm = read_in_data(file_path = q)
+                #upload
+                create_and_insert_fast(frame=dfm, 
+                    tname=table_name,
+                    index_col="h_geocode",
+                    index_name=f"{table_name}_od_hgeocode_index",
+                    spath=spath) 
+                cnx = sqlite3.connect(spath)
+                crsr = cnx.cursor()
+                crsr.execute(f"DROP INDEX IF EXISTS {table_name}_od_wgeocode_index")
+                crsr.execute(f"CREATE INDEX {table_name}_od_wgeocode_index ON {table_name} (w_geocode)")
+            except:
+                print(f"error on {q}")
 
-    end = time.strftime("%H:%M:%S")
-    print(f"od end time: {end}")     
+        end = time.strftime("%H:%M:%S")
+        print(f"od end time: {end}")  
+    except:
+        print("od upload unsuccessful")  
+
     print("done loading all in")
 
-def load_up_geometries(spath : str = None):
+def load_geometries_into_db(spath : str = None):
     
     import geopandas as gpd
     import time 
