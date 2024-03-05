@@ -1,5 +1,4 @@
 
-
 """
 this script demonstrates how you can build a lodes spatialdb from your scratch
 the example is for texas but it would work for any state
@@ -29,7 +28,7 @@ state_fold = download_state_lodes_file(save_loc=wkd,
 #this unzips everything 
 unzip_state_lodes_file(state_fold= state_fold)
 
-# --- loading into spatialite
-build_db(spath=spath) #be careful - this build function overwrites
+# loads downloaded data into spatialite 
+build_db(spath=spath) #be careful - this build function overwrites existing data
 load_lodes_into_db(folder_path = state_fold,spath = spath)
-load_up_geometries(spath=spath) #this one is basically a custom function for texas geometries - will need work for other states
+load_geometries_into_db(spath=spath) #note - this is basically a custom function for texas geometries - will need work for other states
