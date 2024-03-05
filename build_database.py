@@ -76,7 +76,10 @@ def create_and_insert_fast(frame:'pandas.core.frame.DataFrame',tname:str,index_c
     try:
         cnx = sqlite3.connect(spath)
         cursor = cnx.cursor()
-        cursor.execute(f"DROP TABLE {tname};")
+        try:
+            cursor.execute(f"DROP TABLE {tname};")
+        except: 
+            pass
         cnx.execute("PRAGMA max_page_count = 2147483646;")
         cnx.commit()
         #print("dropped old table...")
@@ -279,7 +282,7 @@ def load_lodes_into_db(folder_path:str = None,spath:str = None):
         racs,wacs,ods = get_file_paths(folder_path=fr"{folder_path}\**\*.*")
     except:
         print("could not find file paths")
-        return
+        #return
 
     #load in racs
     try:
