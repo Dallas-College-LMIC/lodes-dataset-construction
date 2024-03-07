@@ -297,7 +297,7 @@ def load_lodes_into_db(folder_path:str = None,spath:str = None,base_only:bool=Fa
         print(f"rac start time: {start}")                
         counter = len(racs)
         for i,q in enumerate(racs):
-            if (i % 50 == 0) or (i+1 == counter):
+            if (i % 25 == 0) or (i+1 == counter):
                 print(f"{((i+1)/counter):.1%} complete...")
             try:
                 #read in
@@ -322,7 +322,7 @@ def load_lodes_into_db(folder_path:str = None,spath:str = None,base_only:bool=Fa
         print(f"wac start time: {start}")                
         counter = len(wacs)
         for i,q in enumerate(wacs):
-            if (i % 50 == 0) or (i+1 == counter):
+            if (i % 25 == 0) or (i+1 == counter):
                 print(f"{((i+1)/counter):.1%} complete...")
             try:
                 #read in
@@ -349,7 +349,7 @@ def load_lodes_into_db(folder_path:str = None,spath:str = None,base_only:bool=Fa
         print(f"od start time: {start}")                
         counter = len(ods)
         for i,q in enumerate(ods):
-            if (i % 50 == 0) or (i+1 == counter):
+            if (i % 25 == 0) or (i+1 == counter):
                 print(f"{((i+1)/counter):.1%} complete...")
             try:
                 #read in
