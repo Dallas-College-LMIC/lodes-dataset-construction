@@ -282,11 +282,14 @@ def load_lodes_into_db(folder_path:str = None,spath:str = None,base_only:bool=Fa
         #get the file paths into 3 bunches
         folder_path = r"C:\Users\cmg0003\Desktop\TX_Lodes_Download\tx"
         racs,wacs,ods = get_file_paths(folder_path=fr"{folder_path}\**\*.*")
-
+        
         if base_only == True:
             ods = [q for q in ods if any(x in q for x in ["JT00","JT01"])]
             racs = [q for q in racs if any(x in q for x in ["JT00","JT01"])]
             wacs = [q for q in wacs if any(x in q for x in ["JT00","JT01"])]
+
+            racs = [q for q in racs if any(x in q for x in ["S000"])]
+            wacs = [q for q in wacs if any(x in q for x in ["S000"])]
     except:
         print("could not find file paths")
         #return
