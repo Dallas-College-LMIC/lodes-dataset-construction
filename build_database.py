@@ -266,12 +266,13 @@ def load_blocks(geom_w:str = None):
     print("Done")
     return gdf
 
-def load_lodes_into_db(folder_path:str = None,spath:str = None):
+def load_lodes_into_db(folder_path:str = None,spath:str = None,base_only:bool=False):
     '''
     Reads and then loads all the LODES tabular data into Spatialite db. 
 
     :param str folder_path: Path to the location of unzipped lodes data; output of the unzip_all() functions.
     :param str spath: Path to the location of Spatialite database.
+    :param bool base_only: If True, builds the database with only the bare minimum tables for analysis- JT00 and JT01.
     '''
 
     import time 
@@ -279,7 +280,13 @@ def load_lodes_into_db(folder_path:str = None,spath:str = None):
 
     try:
         #get the file paths into 3 bunches
+        folder_path = r"C:\Users\cmg0003\Desktop\TX_Lodes_Download\tx"
         racs,wacs,ods = get_file_paths(folder_path=fr"{folder_path}\**\*.*")
+
+        if base_only == True:
+            ods = [q for q in ods if any(x in q for x in ["JT00","JT01"])]
+            racs = [q for q in racs if any(x in q for x in ["JT00","JT01"])]
+            wacs = [q for q in wacs if any(x in q for x in ["JT00","JT01"])]
     except:
         print("could not find file paths")
         #return
