@@ -387,7 +387,7 @@ def pull_geometries(geocodes, spath=False, crsr=False, geom_type = 'blocks',year
     #check if its dataframe
     if geocodes == 'all':
         gcs = ''
-    if type(geocodes) == pd.core.frame.DataFrame: 
+    elif type(geocodes) == pd.core.frame.DataFrame: 
         gcs = f"WHERE {geocode_q} in" + "('" + "', '".join(geocodes["geocode"].unique()) + "')"
     #check if its list
     elif isinstance(geocodes, list):
