@@ -58,6 +58,13 @@ def generate_query(data_type:str = 'wac',perspective:str = 'home',job_type:str='
         print("Error: Geocodes must be a string, list, or pandas DataFrame.")
         return
 
+    #reject perspective if not 'home' or 'work'
+    if data_type == 'od':
+        if perspective not in ['home','work']:
+            print(fr"Error: '{perspective}' passed as perspective.\nMust pass 'home' or 'work' as perspective.")
+            return
+
+
     #process job_type 
     if job_type == 'all':
         jt = 'JT00'
