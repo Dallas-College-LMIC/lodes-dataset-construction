@@ -1,10 +1,10 @@
-# LODES Dataset Construction Workflow
-
+# LODES Dataset Construction and Analysis 
+## Developed by Dallas College LMIC 
 
 
 ## Introduction
 
-These scripts can be used to download, unzip, and save a states entire LODES repository. It also has functions that facilitate the creation of a single Spatialite database which enables a user to query, aggregate, etc. 
+This library contains custom scripts to prepare a SQLite database utilizing Census LEHD LODES data. There are Python scripts to download, unzip, and save to disk files from one or multiple states' LODES data. The scripts also contain functions to facilitate the creation of a Spatialite database which enables a user to query, aggregate, and analyze LODES data using SQL queries. There are also scripts which offer basics for connecting to the SQLite database in Python, which allows for querying and pulling data into Jupyer Notebooks or other Python-based analysis frameworks. 
 
 ## Name
 LODES Dataset Construction Workflow
@@ -21,13 +21,14 @@ This project has a few key functions. The first key use is to allow a user to do
 6. Download, unzip, and load all data into Spatialite.
 
 ## Support
-Contact cgilchriest@dallascollege.edu
+Contact cgilchriest@dallascollege.edu or lmic@dallascollege.edu
 
 ## Roadmap
-Analysis functions. 
+- More complex analysis functions for college-specific applications
+- Visualization functions 
 
 ## Authors and acknowledgment
-Show your appreciation to those who have contributed to the project.
+Developed by Camille Gilchriest while at Dallas College LMIC, Fall 2022. Code uploaded Spring 2024. Siginificant revision and organization support from Ammar Nanjiani. 
 
 ## Project status
-This project is in progress, with occasional development as of 3/5/2024.
+This project is in progress.
