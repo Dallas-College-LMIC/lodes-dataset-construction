@@ -7,7 +7,7 @@ note: the load_up_geometries function at the end would likely require the most w
 
 from download_and_unzip import *
 from build_database import *
-import os 
+import os
 
 #define paths
 wkd = r"C:\Users\cmg0003\Desktop\TX_Lodes_Download"
@@ -32,5 +32,6 @@ unzip_state_lodes_file(state_fold= state_fold)
 
 # loads downloaded data into spatialite 
 build_db(spath=spath) #be careful - this build function overwrites existing data
+state_fold = r"C:\Users\cmg0003\Desktop\TX_Lodes_Download\tx"
 load_lodes_into_db(folder_path = state_fold,spath = spath, base_only = True)
 load_geometries_into_db(spath=spath) #note - this is basically a custom function for texas geometries - will need work for other states

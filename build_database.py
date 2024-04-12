@@ -1,15 +1,23 @@
-def get_file_paths(folder_path: str = None):
+
+import glob
+import os 
+import re 
+import sqlite3
+import os
+import pandas as pd
+import geopandas as gpd
+import time
+
+def get_file_paths(folder_path: str = None)->list:
     """
     Get filepaths to a list of files in a common place separated by years.
     :param str folder_path: Path to the given location of the given file. 
     """
-    import glob
-    import os 
-    import re 
     files = glob.glob(folder_path,recursive=True)
     racs = []
     wacs = []
     ods = []
+    cw = []
     for q in files:
         if q.endswith(".csv"):
             if 'rac' in q:
@@ -18,15 +26,16 @@ def get_file_paths(folder_path: str = None):
                 wacs.append(q)
             elif 'od' in q:
                 ods.append(q)
-    return racs,wacs,ods
+            elif 'cw' in q:
+                cw.append(q)
+    return [racs,wacs,ods,cw]
 
 def build_db(spath : str = None):
     '''
     Create a new SQLite Database with SpatialLite enabled.
     :param str spath: Path to the location to save the SQLite db. 
     '''
-    import sqlite3
-    import os
+
     print("building sqlite db...")
     try:
         #removes existing 
@@ -44,12 +53,11 @@ def build_db(spath : str = None):
     except:
         print(f"could not create sqlite db at: {spath}")
 
-def read_in_data(file_path : str = None) -> 'pandas.core.frame.DataFrame':
+def read_in_data(file_path : str = None) -> pd.core.frame.DataFrame:
     """
     Read the LODES data into memory, assign it a data year, and return it
     :param str file_path: Path to the given location of the given file. 
     """
-    import pandas as pd 
 
     #read in data 
     df = pd.read_csv(file_path,header=0,dtype="string[pyarrow]", on_bad_lines='skip',encoding = "ISO-8859-1")
@@ -59,7 +67,7 @@ def read_in_data(file_path : str = None) -> 'pandas.core.frame.DataFrame':
 
     return df
 
-def create_and_insert_fast(frame:'pandas.core.frame.DataFrame',tname:str,index_col:str,index_name:str,spath:str):
+def create_and_insert_fast(frame:pd.core.frame.DataFrame,tname:str,index_col:str,index_name:str,spath:str):
     """
     Write a pandas DataFrame into a Sqlite table quickly.
 
@@ -119,7 +127,7 @@ def create_and_insert_fast(frame:'pandas.core.frame.DataFrame',tname:str,index_c
         return
     
 
-def write_spatial_table_into_db(gdf:'geopandas.geodataframe.GeoDataFrame' = '', tname:str = '',geom_col:str = 'geometry',
+def write_spatial_table_into_db(gdf:gpd.geodataframe.GeoDataFrame = '', tname:str = '',geom_col:str = 'geometry',
     index_col:str = '',index_name:str = '',keep_cols:list = [],spath:str = ''):
     '''
     Write spatial dataframe into sqlite db. Designed to use geodataframe, with any given index column. 
@@ -275,20 +283,16 @@ def load_lodes_into_db(folder_path:str = None,spath:str = None,base_only:bool=Fa
     :param bool base_only: If True, builds the database with only the bare minimum tables for analysis- JT00 and JT01.
     '''
 
-    import time 
-    import sqlite3
-
     try:
         #get the file paths into 3 bunches
-        folder_path = r"C:\Users\cmg0003\Desktop\TX_Lodes_Download\tx"
-        racs,wacs,ods = get_file_paths(folder_path=fr"{folder_path}\**\*.*")
+        racs,wacs,ods,cw = get_file_paths(folder_path=fr"{folder_path}\**\*.*")
         
         if base_only == True:
             ods = [q for q in ods if any(x in q for x in ["JT00","JT01"])]
             racs = [q for q in racs if any(x in q for x in ["JT00","JT01"])]
-            wacs = [q for q in wacs if any(x in q for x in ["JT00","JT01"])]
-
             racs = [q for q in racs if any(x in q for x in ["S000"])]
+            
+            wacs = [q for q in wacs if any(x in q for x in ["JT00","JT01"])]
             wacs = [q for q in wacs if any(x in q for x in ["S000"])]
     except:
         print("could not find file paths")
@@ -366,8 +370,38 @@ def load_lodes_into_db(folder_path:str = None,spath:str = None,base_only:bool=Fa
                     spath=spath) 
                 cnx = sqlite3.connect(spath)
                 crsr = cnx.cursor()
+
+                #add second index
                 crsr.execute(f"DROP INDEX IF EXISTS {table_name}_od_wgeocode_index")
                 crsr.execute(f"CREATE INDEX {table_name}_od_wgeocode_index ON {table_name} (w_geocode)")
+            except:
+                print(f"error on {q}")
+
+        end = time.strftime("%H:%M:%S")
+        print(f"od end time: {end}")  
+    except:
+        print("od upload unsuccessful")  
+
+    #load in cw 
+    try:
+        start = time.strftime("%H:%M:%S")
+        print(f"cw start time: {start}")                
+        counter = len(cw)
+        for i,q in enumerate(cw):
+            if (i % 25 == 0) or (i+1 == counter):
+                print(f"{((i+1)/counter):.1%} complete...")
+            try:
+                #read in
+                table_name = q.split("\\")[-1].replace(".csv","")
+                dfm = read_in_data(file_path = q)
+                #upload
+                create_and_insert_fast(frame=dfm, 
+                    tname=table_name,
+                    index_col="tabblk2020",
+                    index_name=f"{table_name}_tabblk2020_index",
+                    spath=spath) 
+                cnx = sqlite3.connect(spath)
+                crsr = cnx.cursor()
             except:
                 print(f"error on {q}")
 

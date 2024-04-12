@@ -1,5 +1,14 @@
+'''
+These functions download relevant lodes files.
+'''
 
-
+from bs4 import BeautifulSoup
+import requests
+import pickle
+import os
+import time 
+import gzip
+import glob
 
 def get_all_possible_files(
         save: bool = False, 
@@ -7,17 +16,11 @@ def get_all_possible_files(
         savename : str = '') -> dict:
     
     '''
-    This function creates a dictionary of all possible files in the LODES 8 directory.
+    This function creates a dictionary of all possible files in the LODES 8 directory, plus the crosswalk file.
     :param bool save: If true, this will save the dictionary as a Pickle file in a given directory.
     :param str savepath: Path to save output file 
     :param str savename: Name to save output pickle file
    '''
-    
-    from bs4 import BeautifulSoup
-    import requests
-    import pickle
-    import os
-
     url = r"https://lehd.ces.census.gov/data/lodes/LODES8/"
     reqs = requests.get(url)
     soup = BeautifulSoup(reqs.text, 'html.parser')
@@ -56,6 +59,8 @@ def get_all_possible_files(
                     w_d[z] = t_urls
                 except:
                     continue
+            #add in crosswalk
+            w_d['cw'] = [q + f"{st}_xwalk.csv.gz"]
             f_st[st] = w_d
     print(f'done')
     
@@ -76,7 +81,7 @@ def get_all_possible_files(
 def load_existing_state_dict(
         file_path : str) -> dict:
     '''
-    read in an existing LODES file directory dictionary
+    read in an existing LODES file directory dictionary, which is the output of the get_all_possible_files() function
     :param str file_path: file where you have the dictionary as a pickle (hint: output of get_all_possible_files())
     '''
 
@@ -94,15 +99,12 @@ def download_state_lodes_file(save_loc: str,
                               st: str,
                               links_dict: dict) -> str:
     '''
-    download a single state's full lodes file to a specific folder
+    download a single state's full lodes file to a specific folder.
+    returns a string with a path to a folder.
     :param str save_loc: path to a folder where you'll save output files
     :param str state: two letter state code for the state you want to download
-    :param dict savename: dictionary you want with links (hint: output of get_all_possible_files())
+    :param dict links_dict: dictionary you want with links (hint: output of get_all_possible_files())
     '''
-    
-    import os
-    import time 
-    import requests
     
     #prepare folders for output
     try:
@@ -116,7 +118,7 @@ def download_state_lodes_file(save_loc: str,
         os.makedirs(fold)
 
     #make a subfolder for each od/rac/wac
-    for s in ['od','rac','wac']:
+    for s in ['od','rac','wac','cw']:
         fold2 = os.path.join(fold,s)
         if not os.path.exists(fold2):
             os.makedirs(fold2)
@@ -124,7 +126,7 @@ def download_state_lodes_file(save_loc: str,
     #loop through and download all files
     start = time.strftime("%H:%M:%S")
     print(f"start time: {start}")
-    for s in ['od','rac','wac']:
+    for s in ['od','rac','wac','cw']:
         print(f"{st} + {s}...")
         try:
             urls = links[s]
@@ -152,23 +154,18 @@ def download_state_lodes_file(save_loc: str,
     print("done downloading!")
     end = time.strftime("%H:%M:%S")
     print(f"end time: {end}")
-    return fold2
+    return fold
 
 def unzip_state_lodes_file(state_fold : str = None) -> str:
     '''
     unzip a state's lodes data, using the parent folder location with the data
-    :param str save_loc: path to a folder where you'll save output files
-    :param str state: two letter state code for the state you want to download
-    :param dict savename: dictionary you want with links (hint: output of get_all_possible_files())
+
+    :param str state_fold: folder with all the data; this is the output of the download state lodes file
     '''
     
-    import os
-    import gzip
-    import glob
-    import time
 
     # Define the path to the subfolder containing the .gz files
-    paths = [q for q in glob.glob(state_fold+"\\**",recursive=True) if q.endswith(('rac','wac','od'))]
+    paths = [q for q in glob.glob(state_fold+"\\**",recursive=True) if q.endswith(('rac','wac','od','cw'))]
 
     start = time.strftime("%H:%M:%S")
     print(f"start time: {start}")
