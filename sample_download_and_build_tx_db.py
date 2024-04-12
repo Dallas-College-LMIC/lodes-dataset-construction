@@ -11,7 +11,7 @@ import os
 
 #define paths
 wkd = r"C:\Users\cmg0003\Desktop\TX_Lodes_Download"
-spath = os.path.join(wkd,"lodes_tx_slim.db")
+spath = os.path.join(wkd,"lodes_tx_slim_v2.db")
 
 # --- processing
 #get all the potential files

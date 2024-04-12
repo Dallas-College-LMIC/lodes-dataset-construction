@@ -7,6 +7,7 @@ import os
 import pandas as pd
 import geopandas as gpd
 import time
+import shapely
 
 def get_file_paths(folder_path: str = None)->list:
     """
@@ -24,10 +25,11 @@ def get_file_paths(folder_path: str = None)->list:
                 racs.append(q)
             elif 'wac' in q:
                 wacs.append(q)
+            elif 'xwalk' in q:
+                cw.append(q)
             elif 'od' in q:
                 ods.append(q)
-            elif 'cw' in q:
-                cw.append(q)
+            
     return [racs,wacs,ods,cw]
 
 def build_db(spath : str = None):
@@ -48,6 +50,7 @@ def build_db(spath : str = None):
         #create spatial tables
         conn.execute('SELECT load_extension("mod_spatialite")')   
         conn.execute('SELECT InitSpatialMetaData(1);')  
+        conn.commit()
         conn.close()
         print(f"success!\nsaved to: {spath}")
     except:
@@ -141,11 +144,6 @@ def write_spatial_table_into_db(gdf:gpd.geodataframe.GeoDataFrame = '', tname:st
     :param list keep_cols: Optional parameter of additional columns to retain in the SQLite DB.
     :param str spath: Path to SQLite database.
     '''
-
-    import sqlite3
-    import geopandas as gpd 
-    import shapely
-    gpd.options.use_pygeos = True
     
     print(f'processing {tname}')
 
@@ -193,12 +191,15 @@ def write_spatial_table_into_db(gdf:gpd.geodataframe.GeoDataFrame = '', tname:st
         conn = sqlite3.connect(spath)
         conn.enable_load_extension(True)
         conn.execute('SELECT load_extension("mod_spatialite")')
+        conn.execute('SELECT InitSpatialMetaData();')
+        conn.commit()
 
         #start cursor
         crsr = conn.cursor()
 
         #add multipolygon geometry column to original table
-        crsr.execute(f"SELECT AddGeometryColumn('{tname}', 'geom', 4326, 'MULTIPOLYGON', 2);")
+        crsr.execute(fr"SELECT AddGeometryColumn('{tname}', 'geom', 4326, 'MULTIPOLYGON', 2);")
+        conn.commit()
         
         # update the yet empty geom column by parsing the well-known-binary objects from 
         # the geometry column into Spatialite geometry objects
@@ -406,9 +407,9 @@ def load_lodes_into_db(folder_path:str = None,spath:str = None,base_only:bool=Fa
                 print(f"error on {q}")
 
         end = time.strftime("%H:%M:%S")
-        print(f"od end time: {end}")  
+        print(f"cw end time: {end}")  
     except:
-        print("od upload unsuccessful")  
+        print("cw upload unsuccessful")  
 
     print("done loading all in")
 
@@ -419,8 +420,7 @@ def load_geometries_into_db(spath : str = None):
 
     :param str spath: Path to the location of Spatialite database.
     '''
-    import geopandas as gpd
-    import time 
+
     
     start = time.strftime("%H:%M:%S")
     print(f"load blocks start time: {start}")  
