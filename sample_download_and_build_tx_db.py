@@ -28,10 +28,9 @@ state_fold = download_state_lodes_file(save_loc=wkd,
 #this unzips everything 
 unzip_state_lodes_file(state_fold= state_fold)
 
-#state_fold = r"C:\Users\cmg0003\Desktop\TX_Lodes_Download\tx"
 
 # loads downloaded data into spatialite 
 build_db(spath=spath) #be careful - this build function overwrites existing data
-state_fold = r"C:\Users\cmg0003\Desktop\TX_Lodes_Download\tx"
+#state_fold = r"C:\Users\cmg0003\Desktop\TX_Lodes_Download\tx"
 load_lodes_into_db(folder_path = state_fold,spath = spath, base_only = True)
 load_geometries_into_db(spath=spath) #note - this is basically a custom function for texas geometries - will need work for other states
