@@ -1,6 +1,5 @@
 # LODES Dataset Construction and Analysis 
-## Developed by Dallas College LMIC 
-
+### [Dallas College LMIC](https://www.dallascollege.edu/business-industry/lmic/pages/default.aspx)
 
 ## Introduction
 
