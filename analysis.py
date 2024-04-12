@@ -6,7 +6,7 @@ import os
 import warnings
 import shapely
 
-def connect_to_od(spath):
+def connect_to_od(spath:str) -> tuple[sqlite3.Connection,sqlite3.Cursor]:
     '''
     Creates connection to LODES sqlite db
 
@@ -25,35 +25,48 @@ def connect_to_od(spath):
         print("No SQLite db at given path")
         return
     
-def generate_query(data_type:str = 'wac',perspective:str = 'home',job_type:str='all',subset_type:str = '',state_code:str='tx',year:str='2021',geocodes=False):
+def generate_query(data_type:str = 'wac',perspective:str = 'home',job_type:str='all',subset_type:str = '',state_code:str='tx',year:[str,int,float]='2021',geocodes:[str,list,pd.core.frame.DataFrame]=False) -> str:
     '''
-    Generates query to pull from LODES database. 
+    Generates query to pull data from LODES database. 
 
     :param str data_type: Select 'wac','rac', or 'od'.
     :param str perspective: Select 'home' or 'work'. This is only relevant for o-d, ignored in wac or rac
     :param str job_type: Select 'all' or 'primary'. This is difference between JT00 and JT01
     :param str subset_type: Option to select for a specific OD-pattern for a subset of jobs, i.e. SA01 for workers under age 29
     :param str state_code: Two digit state code name, defaults to 'tx'. Useful if you have multiple states in one db. 
-    :param str year: Year of data to use.
-    :param str or list or DataFrame geocodes: Pass geocodes to use in query.
+    :param str,int,float year: Year of data to use.
+    :param str,list,pd.DataFrame geocodes: Pass geocodes to use in query.
     '''
 
-    import pandas as pd 
+    #part 1 - process inputs 
+    #process year
+    try:
+        year = str(year)[:4]
+    except:
+        print(f"Error with year '{year}'")
+        return 
+    
+    #process geocodes (blocks) 
 
-    #process geocodes
-    #we need the geocodes as a string list for the query
-    #check if its dataframe
+     #1 - check if its dataframe
     if type(geocodes) == pd.core.frame.DataFrame:
-        gcs = "('" + "', '".join(geocodes["geocode"].unique()) + "')"
-    #check if its list
+        try: 
+            gcs = "('" + "', '".join(geocodes["geocode"].unique()) + "')"
+        except:
+            print("Error - must name the geocode column 'geocode'")
+            return
+
+     #2 - check if its list
     elif isinstance(geocodes, list):
         gcs = "('" + "', '".join(geocodes) + "')"
-    #check if its string
+    
+     #3 - check if its string
     elif isinstance(geocodes, str):
         if geocodes[0] == '(':
             gcs = geocodes
         else:
             gcs = f"('{geocodes}')"
+     #4 - spit it out if its nothing    
     else:
         print("Error: Geocodes must be a string, list, or pandas DataFrame.")
         return
@@ -61,11 +74,10 @@ def generate_query(data_type:str = 'wac',perspective:str = 'home',job_type:str='
     #reject perspective if not 'home' or 'work'
     if data_type == 'od':
         if perspective not in ['home','work']:
-            print(fr"Error: '{perspective}' passed as perspective.\nMust pass 'home' or 'work' as perspective.")
+            print(fr"Error: '{perspective}' passed as perspective.\nMust pass 'home' or 'work'")
             return
 
-
-    #process job_type 
+    #process job_type - corresponds to JT in LODES documentation 
     if job_type == 'all':
         jt = 'JT00'
     elif job_type == 'primary':
@@ -74,15 +86,15 @@ def generate_query(data_type:str = 'wac',perspective:str = 'home',job_type:str='
         print(f'Warning: Building function with {job_type} as job_type')
         jt = job_type
 
-    #process S-subset
-    #process tables for query 
+    #process S-subset - segment of workforce in LODES documentation
+        #defaults to all
     if subset_type == '':
         st = 'S000_'
     else:
         print(f'Warning: Building function with {subset_type} as subset_type')
         st = f"{subset_type}_"
     
-    #get geocode name
+    #based on data type get the column that will match in the table
     if data_type == 'wac':
         geo_name = 'w_geocode'
     elif data_type == 'rac':
@@ -96,6 +108,7 @@ def generate_query(data_type:str = 'wac',perspective:str = 'home',job_type:str='
 
     #build a table name
     if data_type == 'od':
+        #doesn't have room to handle aux files- this is a future error/fixable thing
         table_spec = f"main_{jt}"
     elif data_type in ['wac','rac']:
         table_spec = f"{st}{jt}"
@@ -115,10 +128,10 @@ def generate_query(data_type:str = 'wac',perspective:str = 'home',job_type:str='
     query = f"""SELECT * from {table_name} indexed by {index_col} WHERE {geo_name} IN {gcs};"""
     return query
 
-def retype(df = None):
+def retype(df:pd.core.frame.DataFrame = None) -> pd.core.frame.DataFrame:
     '''
     Renames columns and casts the type as float for the output of LODES pull function. 
-    :param pandas.core.DataFrame.DataFrame df: dataframe output of pull_data function
+    :param pd.DataFrame df: dataframe output of pull_data function
     '''
 
     import pandas as pd
@@ -198,12 +211,12 @@ def retype(df = None):
 
     return df_new 
 
-def pull_data(query:str='',crsr=False,spath=False,rename=False):
+def pull_data(query:str='',crsr:sqlite3.Cursor=False,spath:str=False,rename:bool=False):
     '''
-    Pulls data from LODES database. 
+    Pulls data from LODES database based on the output of generate query function. 
 
     :param str query: Output of generate_query function.
-    :param str crsr: If you've already connected and have an active cursor, you can use this. Otherwise, it will use spath.
+    :param sqlite3.Cursor crsr: If you've already connected and have an active cursor, you can use this. Otherwise, it will use spath.
     :param str spath: Path to the location of the LODES database.
     :param bool retype: If true, the data will get retyped using the retype function. If false, it won't. Default is false.
     '''
@@ -254,26 +267,22 @@ def pull_data(query:str='',crsr=False,spath=False,rename=False):
         print("Could not build dataframe")
         return
 
-def transform_to_wkt(gdf = None, out_crs: int = 4326):
+def transform_to_wkt(gdf:gpd.geodataframe.GeoDataFrame = None, out_crs: int = 4326) -> gpd.geodataframe.GeoDataFrame:
     """
-    Prepare geodataframe to be given to query against the DataBase.
-    Returns wkt of the geometry or a series of wkt geometries. Default crs is 4326.
+    Utility function to return WellKnownText of the geometry column of a GeoDataFrame. Default crs is 4326.
 
     :param gdf: Geodataframe containing location you want to look at.
     :param int out_crs: EPSG code for output.
     """
-    import warnings
-    import shapely
-    warnings.simplefilter(action="ignore", category=FutureWarning)
     
     gdf = gdf.to_crs(f"EPSG:{out_crs}")
     wkt = gdf.apply(lambda x: shapely.wkt.dumps(x.geometry), axis=1)
     return wkt
 
-def id_intersections(wkt, spath=False, crsr=False, centroid=False,return_geom=False,geom_type = 'blocks',year="2020"):
+def id_intersections(wkt:str,crsr:sqlite3.Cursor=False, spath:str=False,centroid:bool=False,return_geom:bool=False,geom_type:bool = 'blocks',year:[int,str,float]="2020"):
     """
-    Return blocks that intersect for a given polygon.
-    :param str wkt: Point to query in CRS EPSG 4326 to query in WKT format
+    Return geometries that intersect for a given polygon.
+    :param str wkt: Polygon to query against geometries in Spatialite db in CRS EPSG 4326.
     :param str spath: Path to SQLite DB with spatial data in it, preferred.
     :param str crsr: If crsr passed, you can bypass new connection. Can also pass a crsr.
     :param bool centroid: If true, only check centroids, if false get all intersections. 
@@ -305,7 +314,7 @@ def id_intersections(wkt, spath=False, crsr=False, centroid=False,return_geom=Fa
     else:
         wkt_q = ''
 
-    #handle if you want centroid
+    #handle if you want centroid, i.e. those geometries that intersect only with the center
     if centroid == True:
         geom_q = "ST_Centroid(geom)"
     elif centroid == False:
@@ -353,16 +362,13 @@ def id_intersections(wkt, spath=False, crsr=False, centroid=False,return_geom=Fa
 
 def pull_geometries(geocodes, spath=False, crsr=False, geom_type = 'blocks',year="2020"):
     """
-    Return blocks for a list of geocodes or a dataframe.
+    Utility to return geometries for a list of geocodes or a dataframe.
     :param str or list or DataFrame geocodes: Pass geocodes to use in query.
     :param str spath: Path to SQLite DB with spatial data in it, preferred.
     :param str crsr: If crsr passed, you can bypass new connection. Can also pass a crsr.
     :param str geom_type: Defaults to blocks. Can pass other things though to get zctas, etc.
     :param str year: Year to query. Defaults to 2020.
     """
-    import pandas as pd
-    import geopandas as gpd
-
     try:
         if (spath == False) & (crsr == False):
             print("Must pass a DB path or a cursor to existing DB.")
