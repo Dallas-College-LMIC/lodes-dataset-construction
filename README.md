@@ -1,6 +1,6 @@
 # LODES Dataset Construction and Analysis 
 ### [Dallas College LMIC](https://www.dallascollege.edu/business-industry/lmic/pages/default.aspx)
-
+### [Link to Census LODES Conference Presentation 5/14/24](https://dcccd-my.sharepoint.com/:b:/g/personal/cmg0003_dcccd_edu/EaBivKBfW0lPhPhbRKtQixABMVPj92AGfRYFMC2JLEgBLA?e=nClNY0)
 ## Introduction
 
 This library contains custom scripts to prepare a SQLite database utilizing Census LEHD LODES data. There are Python scripts to download, unzip, and save to disk files from one or multiple states' LODES data. The scripts also contain functions to facilitate the creation of a Spatialite database which enables a user to query, aggregate, and analyze LODES data using SQL queries. There are also scripts which offer basics for connecting to the SQLite database in Python, which allows for querying and pulling data into Jupyer Notebooks or other Python-based analysis frameworks. 
@@ -31,3 +31,4 @@ Developed by Camille Gilchriest while at Dallas College LMIC, Fall 2022. Code up
 
 ## Project status
 This project is in progress.
+
